@@ -2,63 +2,66 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"time"
 	"net/http"
-    "golang.org/x/crypto/bcrypt"
+	"time"
+
+	"iam-service/internal/database"
 	"iam-service/internal/models"
+	
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func hashPassword(password string ) (string, error){
-	    bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)                                                                       
-        return string(bytes), err
+// 1. We create a struct to hold our Database Repository!
+type AuthHandler struct {
+	Repo *database.UserRepository
 }
 
-func RegisterHandler(w http.ResponseWriter, r *http.Request) {
-	// 1. Ensure this is a POST request
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+// 2. Notice this is now `func (h *AuthHandler) RegisterHandler...`
+func (h *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// 2. Read the JSON from the request body into our struct
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if req.Email == "" || req.Password == ""{
+	if req.Email == "" || req.Password == "" {
 		http.Error(w, "Email and password are required", http.StatusBadRequest)
-		return 
+		return
 	}
 
-	hashedPassword, err	:= hashPassword(req.Password)
-	if err!=nil{
+	hashedPassword, err := hashPassword(req.Password)
+	if err != nil {
 		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
-        return
+		return
 	}
+
 	user := models.User{
-            ID:           uuid.New().String(), // <-- Go generates the unique ID instantly!
-            Email:        req.Email,
-            PasswordHash: hashedPassword,
-            Role:         "customer",
-            CreatedAt:    time.Now(),
-        }
+		ID:           uuid.New().String(),
+		Email:        req.Email,
+		PasswordHash: hashedPassword,
+		Role:         "customer",
+		CreatedAt:    time.Now(),
+	}
 
-	// Save user to database
-    if err := userRepository.Create(user); err != nil {
-        http.Error(w, "Failed to create user", http.StatusInternalServerError)
-        return
-    }
+	// 3. We use h.Repo.Create to save to the database!
+	if err := h.Repo.Create(user); err != nil {
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
 
-    // Return response
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusCreated)
-
-    json.NewEncoder(w).Encode(user)
-	// 4. Send a success response
+	// 4. Send the final success response (without the double Fprintf error)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "Success! We received the registration for: %s\n", req.Email)
+	json.NewEncoder(w).Encode(user)
 }

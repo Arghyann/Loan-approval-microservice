@@ -1,1 +1,18 @@
 version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: local-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      # Docker Compose automatically reads these from the .env file in the same folder!
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./postgres-init:/docker-entrypoint-initdb.d/
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
