@@ -1,6 +1,7 @@
 package database
 import (                                                                                                                               
-        "database/sql"                                                                                                                        
+        "database/sql"
+        "time"                                                                                                                        
         "iam-service/internal/models"                                                                                                         
     )
 
@@ -38,3 +39,31 @@ import (
         // 3. Return any errors back to the handler
         return err
     }
+
+    // SaveRefreshToken saves a refresh token to the database
+    func (r *UserRepository) SaveRefreshToken(token, userID string, expiresAt time.Time) error {
+        query := `
+            INSERT INTO refresh_tokens (token, user_id, expires_at)
+            VALUES ($1, $2, $3)
+        `
+        _, err := r.db.Exec(query, token, userID, expiresAt)
+        return err
+    }
+
+	func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
+		query := `SELECT id, email, password_hash, role, created_at FROM users WHERE email = $1`
+		var user models.User
+		
+		err := r.db.QueryRow(query, email).Scan(
+			&user.ID,
+			&user.Email,
+			&user.PasswordHash,
+			&user.Role,
+			&user.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		
+		return &user, nil
+	}

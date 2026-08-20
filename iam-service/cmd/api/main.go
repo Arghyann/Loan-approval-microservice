@@ -43,9 +43,11 @@ func main() {
 	})
 
 	http.HandleFunc("/api/register", authHandler.RegisterHandler)
+	http.HandleFunc("/api/login", authHandler.LoginHandler)
 
 	fmt.Println("Starting IAM Service on port 8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		log.Fatalf("Could not start server: %s\n", err)
 	}
+
 }
