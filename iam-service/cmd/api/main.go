@@ -44,6 +44,8 @@ func main() {
 
 	http.HandleFunc("/api/register", authHandler.RegisterHandler)
 	http.HandleFunc("/api/login", authHandler.LoginHandler)
+	http.HandleFunc("/api/refresh", authHandler.RefreshHandler)
+	http.HandleFunc("/api/change-password", authHandler.ChangePasswordHandler)
 
 	fmt.Println("Starting IAM Service on port 8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {

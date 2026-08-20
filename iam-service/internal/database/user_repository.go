@@ -67,3 +67,26 @@ import (
 		
 		return &user, nil
 	}
+
+func (r *UserRepository) GetUserIDFromRefreshToken(token string) (string, error) {
+    var userID string
+    err := r.db.QueryRow(`SELECT user_id FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()`, token).Scan(&userID)
+    return userID, err
+}
+
+func (r *UserRepository) DeleteRefreshToken(token string) error {
+    _, err := r.db.Exec(`DELETE FROM refresh_tokens WHERE token = $1`, token)
+    return err
+}
+
+func (r *UserRepository) UpdatePassword(email, newHash string) error {
+    _, err := r.db.Exec(`UPDATE users SET password_hash = $1 WHERE email = $2`, newHash, email)
+    return err
+}
+
+func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
+    query := `SELECT id, email, password_hash, role, created_at FROM users WHERE id = $1`
+    var user models.User
+    err := r.db.QueryRow(query, id).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Role, &user.CreatedAt)
+    return &user, err
+}
