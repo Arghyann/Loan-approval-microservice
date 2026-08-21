@@ -42,3 +42,37 @@ func (repo *LoanRepository) MarkDocumentUploaded(userID, docType string) error {
 	_, err := repo.DB.Exec(query, userID, docType)
 	return err
 }
+
+// GetLoansByUserID fetches all loans for a specific user
+func (repo *LoanRepository) GetLoansByUserID(userID string) ([]models.LoanApplication, error) {
+	query := `SELECT id, user_id, amount, purpose, tenure_months, monthly_income, employment_type, status, created_at, updated_at FROM loans WHERE user_id = $1`
+	rows, err := repo.DB.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var loans []models.LoanApplication
+	for rows.Next() {
+		var l models.LoanApplication
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Amount, &l.Purpose, &l.TenureMonths, &l.MonthlyIncome, &l.EmploymentType, &l.Status, &l.CreatedAt, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
+		loans = append(loans, l)
+	}
+	return loans, nil
+}
+
+// GetLoanByID fetches a specific loan
+func (repo *LoanRepository) GetLoanByID(loanID string) (*models.LoanApplication, error) {
+	query := `SELECT id, user_id, amount, purpose, tenure_months, monthly_income, employment_type, status, created_at, updated_at FROM loans WHERE id = $1`
+	row := repo.DB.QueryRow(query, loanID)
+
+	var l models.LoanApplication
+	err := row.Scan(&l.ID, &l.UserID, &l.Amount, &l.Purpose, &l.TenureMonths, &l.MonthlyIncome, &l.EmploymentType, &l.Status, &l.CreatedAt, &l.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &l, nil
+}
+

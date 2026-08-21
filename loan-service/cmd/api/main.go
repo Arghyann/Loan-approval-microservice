@@ -41,7 +41,8 @@ func main() {
 	loanHandler := &handlers.LoanHandler{Repo: repo}
 
 	// 4. Register Routes (Wrapped in RequireAuth middleware!)
-	http.HandleFunc("/api/loans", middleware.RequireAuth(loanHandler.ApplyLoanHandler))
+	http.HandleFunc("/api/loans", middleware.RequireAuth(loanHandler.ApplyLoanHandler)) // For POST
+	http.HandleFunc("/api/loans/", middleware.RequireAuth(loanHandler.GetLoansHandler)) // For GETs
 	http.HandleFunc("/api/documents/upload-url", middleware.RequireAuth(loanHandler.DocumentUploadHandler))
 	http.HandleFunc("/api/documents/confirm", middleware.RequireAuth(loanHandler.DocumentConfirmHandler))
 

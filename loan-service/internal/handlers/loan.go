@@ -132,3 +132,49 @@ func (h *LoanHandler) DocumentConfirmHandler(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message":"Document status updated to UPLOADED successfully"}`))
 }
+
+// GetLoansHandler handles both listing all loans and getting a specific loan status
+func (h *LoanHandler) GetLoansHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+
+	// Since we mount this to /api/loans/, we check if they provided an ID after the slash
+	path := r.URL.Path[len("/api/loans/"):]
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if path == "" {
+		// List all loans for the user
+		loans, err := h.Repo.GetLoansByUserID(userID)
+		if err != nil {
+			http.Error(w, "Failed to fetch loans", http.StatusInternalServerError)
+			return
+		}
+		// If nil, return an empty array instead of null
+		if loans == nil {
+			loans = []models.LoanApplication{}
+		}
+		json.NewEncoder(w).Encode(loans)
+		return
+	}
+
+	// Fetch a specific loan
+	loan, err := h.Repo.GetLoanByID(path)
+	if err != nil {
+		http.Error(w, "Loan not found", http.StatusNotFound)
+		return
+	}
+
+	// SECURITY CHECK (IDOR Protection)
+	// We MUST ensure the loan they are asking for actually belongs to them!
+	if loan.UserID != userID {
+		http.Error(w, "Forbidden: You do not have access to this loan", http.StatusForbidden)
+		return
+	}
+
+	json.NewEncoder(w).Encode(loan)
+}
