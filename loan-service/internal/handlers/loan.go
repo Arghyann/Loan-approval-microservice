@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"loan-service/internal/database"
 	"loan-service/internal/models"
 	"loan-service/internal/storage"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/google/uuid"
 )
 
@@ -63,6 +65,66 @@ func (h *LoanHandler) ApplyLoanHandler(w http.ResponseWriter, r *http.Request) {
 		"ip", r.RemoteAddr,
 		"latency_ms", time.Since(start).Milliseconds(),
 	)
+
+	rabbitmqURL := os.Getenv("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		slog.Error("RABBITMQ_URL not set in environment variables")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if conn, err := amqp.Dial(rabbitmqURL); err == nil {                                                                                  
+            defer conn.Close()                                                                                                                    
+            if ch, err := conn.Channel(); err == nil {
+                defer ch.Close()
+  
+                q, err := ch.QueueDeclare("loan_applications", true, false, false, false, nil)
+                if err == nil {
+                    body, _ := json.Marshal(loan)
+                    err = ch.Publish(
+                        "", q.Name, false, false,
+                        amqp.Publishing{
+                            ContentType: "application/json",
+                            Body:        body,
+                        },
+                    )
+                    if err != nil {
+                        slog.Error("failed to publish to RabbitMQ", "error", err.Error())
+                    } else {
+                        slog.Info("published to RabbitMQ", "loan_id", loan.ID)
+                    }
+                }
+            }
+        } else {
+            slog.Error("failed to connect to RabbitMQ", "error", err.Error())
+        }
+        // --- RABBITMQ END ---
+  
+	if conn, err := amqp.Dial(rabbitmqURL); err == nil {
+		defer conn.Close()
+		if ch, err := conn.Channel(); err == nil {
+			defer ch.Close()
+
+			q, err := ch.QueueDeclare("loan_applications", true, false, false, false, nil)
+			if err == nil {
+				body, _ := json.Marshal(loan)
+				err = ch.Publish(
+					"", q.Name, false, false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        body,
+					},
+				)
+				if err != nil {
+					slog.Error("failed to publish to RabbitMQ", "error", err.Error())
+				} else {
+					slog.Info("published to RabbitMQ", "loan_id", loan.ID)
+				}
+			}
+		}
+	} else {
+		slog.Error("failed to connect to RabbitMQ", "error", err.Error())
+	}
+	// --- RABBITMQ END ---
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
