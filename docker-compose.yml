@@ -14,5 +14,15 @@ services:
       - ./postgres-init:/docker-entrypoint-initdb.d/
       - pgdata:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: local-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+
 volumes:
   pgdata:

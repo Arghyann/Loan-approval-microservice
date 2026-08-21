@@ -9,6 +9,7 @@ import (
 
 	"loan-service/internal/database"
 	"loan-service/internal/handlers"
+	"loan-service/internal/logger"
 	"loan-service/internal/middleware"
 
 	"github.com/joho/godotenv"
@@ -16,6 +17,9 @@ import (
 )
 
 func main() {
+	// 0. Initialize structured JSON logger
+	logger.Init()
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}

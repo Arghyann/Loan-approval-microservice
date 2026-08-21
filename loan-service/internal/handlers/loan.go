@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,18 +20,20 @@ type LoanHandler struct {
 
 // ApplyLoanHandler receives the loan application form and saves it as DRAFT
 func (h *LoanHandler) ApplyLoanHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	if r.Method != http.MethodPost {
+		slog.Warn("method not allowed", "endpoint", "/api/loans", "method", r.Method, "ip", r.RemoteAddr)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	var req models.ApplyLoanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("invalid request body", "endpoint", "/api/loans", "ip", r.RemoteAddr, "error", err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Extract the actual UserID that our Auth Middleware injected into the context!
 	userID := r.Context().Value("user_id").(string)
 
 	loan := models.LoanApplication{
@@ -48,10 +50,19 @@ func (h *LoanHandler) ApplyLoanHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Repo.SaveApplication(loan); err != nil {
-		log.Printf("DB Error: %v\n", err)
+		slog.Error("failed to save loan application", "endpoint", "/api/loans", "user_id", userID, "error", err.Error())
 		http.Error(w, "Failed to save application", http.StatusInternalServerError)
 		return
 	}
+
+	slog.Info("loan application created",
+		"endpoint", "/api/loans",
+		"user_id", userID,
+		"loan_id", loan.ID,
+		"amount", loan.Amount,
+		"ip", r.RemoteAddr,
+		"latency_ms", time.Since(start).Milliseconds(),
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -60,7 +71,9 @@ func (h *LoanHandler) ApplyLoanHandler(w http.ResponseWriter, r *http.Request) {
 
 // DocumentUploadHandler generates a Presigned URL for Azure Blob Storage
 func (h *LoanHandler) DocumentUploadHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	if r.Method != http.MethodPost {
+		slog.Warn("method not allowed", "endpoint", "/api/documents/upload-url", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -69,6 +82,7 @@ func (h *LoanHandler) DocumentUploadHandler(w http.ResponseWriter, r *http.Reque
 		DocumentType string `json:"document_type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("invalid request body", "endpoint", "/api/documents/upload-url", "error", err.Error())
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -78,14 +92,22 @@ func (h *LoanHandler) DocumentUploadHandler(w http.ResponseWriter, r *http.Reque
 
 	uploadURL, err := storage.GenerateUploadURL(fileName)
 	if err != nil {
-		log.Printf("Azure Storage Error: %v\n", err)
+		slog.Error("failed to generate azure presigned url", "endpoint", "/api/documents/upload-url", "user_id", userID, "error", err.Error())
 		http.Error(w, "Failed to generate upload URL", http.StatusInternalServerError)
 		return
 	}
 
-	// Track this in PostgreSQL before returning it to the user
 	storageURL := fmt.Sprintf("https://YOUR_ACCOUNT.blob.core.windows.net/kyc-documents/%s", fileName)
-	h.Repo.RecordDocument(uuid.New().String(), userID, req.DocumentType, storageURL)
+	if err := h.Repo.RecordDocument(uuid.New().String(), userID, req.DocumentType, storageURL); err != nil {
+		slog.Error("failed to record document in db", "endpoint", "/api/documents/upload-url", "user_id", userID, "error", err.Error())
+	}
+
+	slog.Info("presigned url generated",
+		"endpoint", "/api/documents/upload-url",
+		"user_id", userID,
+		"document_type", req.DocumentType,
+		"latency_ms", time.Since(start).Milliseconds(),
+	)
 
 	response := map[string]string{
 		"upload_url": uploadURL,
@@ -99,7 +121,9 @@ func (h *LoanHandler) DocumentUploadHandler(w http.ResponseWriter, r *http.Reque
 
 // DocumentConfirmHandler is called by the React frontend AFTER Azure returns 200 OK.
 func (h *LoanHandler) DocumentConfirmHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	if r.Method != http.MethodPost {
+		slog.Warn("method not allowed", "endpoint", "/api/documents/confirm", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -108,25 +132,25 @@ func (h *LoanHandler) DocumentConfirmHandler(w http.ResponseWriter, r *http.Requ
 		DocumentType string `json:"document_type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("invalid request body", "endpoint", "/api/documents/confirm", "error", err.Error())
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	userID := r.Context().Value("user_id").(string)
 
-	// Update PostgreSQL
 	if err := h.Repo.MarkDocumentUploaded(userID, req.DocumentType); err != nil {
-		log.Printf("DB Error: %v\n", err)
+		slog.Error("failed to update document status", "endpoint", "/api/documents/confirm", "user_id", userID, "error", err.Error())
 		http.Error(w, "Failed to update database", http.StatusInternalServerError)
 		return
 	}
 
-	// =========================================================================
-	// TODO: RABBITMQ INTEGRATION
-	// The application is complete. Drop a message into RabbitMQ so the Python 
-	// Risk Assessment Service knows it is time to run the ML model!
-	// Example: publishEvent("EVALUATE_LOAN", loanID)
-	// =========================================================================
+	slog.Info("document marked as uploaded",
+		"endpoint", "/api/documents/confirm",
+		"user_id", userID,
+		"document_type", req.DocumentType,
+		"latency_ms", time.Since(start).Milliseconds(),
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -135,46 +159,47 @@ func (h *LoanHandler) DocumentConfirmHandler(w http.ResponseWriter, r *http.Requ
 
 // GetLoansHandler handles both listing all loans and getting a specific loan status
 func (h *LoanHandler) GetLoansHandler(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	if r.Method != http.MethodGet {
+		slog.Warn("method not allowed", "endpoint", "/api/loans/", "method", r.Method)
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	userID := r.Context().Value("user_id").(string)
-
-	// Since we mount this to /api/loans/, we check if they provided an ID after the slash
 	path := r.URL.Path[len("/api/loans/"):]
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if path == "" {
-		// List all loans for the user
 		loans, err := h.Repo.GetLoansByUserID(userID)
 		if err != nil {
+			slog.Error("failed to fetch user loans", "endpoint", "/api/loans/", "user_id", userID, "error", err.Error())
 			http.Error(w, "Failed to fetch loans", http.StatusInternalServerError)
 			return
 		}
-		// If nil, return an empty array instead of null
 		if loans == nil {
 			loans = []models.LoanApplication{}
 		}
+		
+		slog.Info("fetched all user loans", "endpoint", "/api/loans/", "user_id", userID, "count", len(loans), "latency_ms", time.Since(start).Milliseconds())
 		json.NewEncoder(w).Encode(loans)
 		return
 	}
 
-	// Fetch a specific loan
 	loan, err := h.Repo.GetLoanByID(path)
 	if err != nil {
+		slog.Warn("loan not found", "endpoint", "/api/loans/{id}", "loan_id", path, "user_id", userID)
 		http.Error(w, "Loan not found", http.StatusNotFound)
 		return
 	}
 
-	// SECURITY CHECK (IDOR Protection)
-	// We MUST ensure the loan they are asking for actually belongs to them!
 	if loan.UserID != userID {
+		slog.Warn("idor attempt detected", "endpoint", "/api/loans/{id}", "loan_id", path, "attempted_by_user", userID)
 		http.Error(w, "Forbidden: You do not have access to this loan", http.StatusForbidden)
 		return
 	}
 
+	slog.Info("fetched specific loan", "endpoint", "/api/loans/{id}", "user_id", userID, "loan_id", loan.ID, "latency_ms", time.Since(start).Milliseconds())
 	json.NewEncoder(w).Encode(loan)
 }
