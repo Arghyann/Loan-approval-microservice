@@ -9,12 +9,16 @@ import (
 
 	"iam-service/internal/database"
 	"iam-service/internal/handlers"
+	"iam-service/internal/logger"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 func main() {
+	// 0. Initialize structured JSON logger
+	logger.Init()
+
 	// 1. Load the .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, relying on system environment variables")
