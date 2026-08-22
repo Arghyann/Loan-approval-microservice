@@ -1,0 +1,47 @@
+name: Build and Push Microservices
+
+# This tells GitHub to run this pipeline every time you push code to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Download your code onto the GitHub server
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Log into Docker Hub securely using GitHub Secrets
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. Build and Push Loan Service
+      - name: Build and push Loan Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./loan-service
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/loan-service:latest
+
+      # 4. Build and Push IAM Service
+      - name: Build and push IAM Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./iam-service
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/iam-service:latest
+
+      # 5. Build and Push Notification Service
+      - name: Build and push Notification Service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./notification_service
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/notification-service:latest
