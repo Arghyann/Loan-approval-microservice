@@ -8,6 +8,5 @@ RUN go build -o main ./cmd/api/main.go
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/main .
-COPY private.pem public.pem ./
 EXPOSE 8080
 CMD ["./main"]
