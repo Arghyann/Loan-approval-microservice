@@ -1,0 +1,38 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: loan-microservices
+  region: ap-south-1
+  version: "1.36"
+
+# 1. Connected to your live loan-vpc
+vpc:
+  id: "vpc-000892ba7d8e661c2"
+  subnets:
+    public:
+      ap-south-1a:
+        id: "subnet-0ba7eb9ad618fb5a5"
+      ap-south-1b:
+        id: "subnet-00c31a75e654c9360"
+    private:
+      ap-south-1a:
+        id: "subnet-00a4edc715f390b93"
+      ap-south-1b:
+        id: "subnet-063124ba25654d1bf"
+
+# 2. Enable OpenID Connect for AWS IAM authentication
+iam:
+  withOIDC: true
+
+# 3. Provision 4 worker nodes in the Private Subnets
+managedNodeGroups:
+  - name: private-nodes
+    instanceType: t3.small
+    desiredCapacity: 4
+    minSize: 4
+    maxSize: 6
+    volumeSize: 20
+    privateNetworking: true
+    ssh:
+      allow: false

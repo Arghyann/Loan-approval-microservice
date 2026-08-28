@@ -1,0 +1,65 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api-ingress
+  namespace: loan-app
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  rules:
+  - http:
+      paths:
+      # Route Auth endpoints to IAM Service
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: iam-service
+            port:
+              number: 8080
+      - path: /api/register
+        pathType: Prefix
+        backend:
+          service:
+            name: iam-service
+            port:
+              number: 8080
+      - path: /api/login
+        pathType: Prefix
+        backend:
+          service:
+            name: iam-service
+            port:
+              number: 8080
+      - path: /api/refresh
+        pathType: Prefix
+        backend:
+          service:
+            name: iam-service
+            port:
+              number: 8080
+      - path: /api/change-password
+        pathType: Prefix
+        backend:
+          service:
+            name: iam-service
+            port:
+              number: 8080
+      # Route Loan & Document endpoints to Loan Service
+      - path: /api/loans
+        pathType: Prefix
+        backend:
+          service:
+            name: loan-service
+            port:
+              number: 8081
+      - path: /api/documents
+        pathType: Prefix
+        backend:
+          service:
+            name: loan-service
+            port:
+              number: 8081

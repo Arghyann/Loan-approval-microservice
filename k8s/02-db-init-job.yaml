@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rds-init-sql
+  namespace: loan-app
+data:
+  init.sql: |
+    CREATE DATABASE iam_db;
+    \c iam_db;
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+        token VARCHAR(255) PRIMARY KEY,
+        user_id UUID NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    \c loan_db;
+    CREATE TABLE IF NOT EXISTS loans (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        purpose VARCHAR(100) NOT NULL,
+        tenure_months INT NOT NULL,
+        monthly_income DECIMAL(12,2) NOT NULL,
+        employment_type VARCHAR(50) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS documents (
+        id UUID PRIMARY KEY,
+        user_id UUID NOT NULL,
+        document_type VARCHAR(50) NOT NULL,
+        storage_url TEXT NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rds-schema-init
+  namespace: loan-app
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: psql-init
+        image: postgres:15-alpine
+        command: ["sh", "-c", "PGPASSWORD=$POSTGRES_PASSWORD psql -h database-1.cpeuw2w6uxup.ap-south-1.rds.amazonaws.com -U postgres -d postgres -f /scripts/init.sql || true"]
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: sql-script
+          mountPath: /scripts
+      volumes:
+      - name: sql-script
+        configMap:
+          name: rds-init-sql
