@@ -12,8 +12,12 @@ import (
 	"iam-service/internal/logger"
 
 	"github.com/joho/godotenv"
+	_ "embed"
 	_ "github.com/lib/pq"
 )
+
+//go:embed data.json
+var heavyPayload []byte
 
 func main() {
 	// 0. Initialize structured JSON logger
@@ -43,7 +47,12 @@ func main() {
 
 	// 5. Register the Routes
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "IAM Service is healthy!")
+		w.Write([]byte("IAM Service is healthy!"))
+	})
+
+	http.HandleFunc("/temp", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(heavyPayload)
 	})
 
 	http.HandleFunc("/api/register", authHandler.RegisterHandler)

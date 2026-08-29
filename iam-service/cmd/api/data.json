@@ -1,0 +1,26 @@
+{
+  "institution": "FINTECH_LENDING_CORE_V1",
+  "timestamp": "2026-08-29T23:55:00Z",
+  "currency": "INR",
+  "base_lending_rate": 8.25,
+  "risk_matrix": {
+    "tier_1_prime": {"min_cibil": 800, "apr": 8.25, "max_amount": 5000000, "processing_fee_pct": 0.5, "tenure_months": [12, 24, 36, 48, 60]},
+    "tier_2_prime_plus": {"min_cibil": 750, "apr": 9.50, "max_amount": 3500000, "processing_fee_pct": 0.75, "tenure_months": [12, 24, 36, 48]},
+    "tier_3_standard": {"min_cibil": 700, "apr": 11.25, "max_amount": 2000000, "processing_fee_pct": 1.0, "tenure_months": [12, 24, 36]},
+    "tier_4_subprime": {"min_cibil": 650, "apr": 14.50, "max_amount": 1000000, "processing_fee_pct": 1.5, "tenure_months": [12, 24]},
+    "tier_5_high_risk": {"min_cibil": 600, "apr": 18.00, "max_amount": 500000, "processing_fee_pct": 2.0, "tenure_months": [12]}
+  },
+  "repayment_rules": {
+    "foreclosure_penalty_pct": 0.0,
+    "grace_period_days": 3,
+    "late_payment_penalty_apr": 24.0,
+    "emi_date_options": [1, 5, 10, 15, 20]
+  },
+  "compliance_flags": {
+    "rbi_guidelines_compliant": true,
+    "kyc_mandatory": true,
+    "pan_verification_required": true,
+    "aadhaar_xml_enabled": true
+  },
+  "server_cluster": "aws-ap-south-1-mumbai-96vcpu-fleet"
+}

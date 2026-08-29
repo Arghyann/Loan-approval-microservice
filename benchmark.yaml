@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: benchmark
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: go-health-defender
+  namespace: benchmark
+  labels:
+    app: go-health-defender
+spec:
+  selector:
+    matchLabels:
+      app: go-health-defender
+  template:
+    metadata:
+      labels:
+        app: go-health-defender
+    spec:
+      # Automatically deploys exactly 1 Go Pod on each of the 8 Defender Nodes
+      nodeSelector:
+        eks.amazonaws.com/nodegroup: private-nodes
+      containers:
+      - name: go-server
+        image: aarghyan/iam-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 1700m
+            memory: 64Mi
+          limits:
+            cpu: 2000m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-health-service
+  namespace: benchmark
+spec:
+  type: ClusterIP
+  selector:
+    app: go-health-defender
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

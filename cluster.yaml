@@ -25,13 +25,25 @@ vpc:
 iam:
   withOIDC: true
 
-# 3. Provision 4 worker nodes in the Private Subnets
+# 3. Provision Isolated 48-Node Fleet (96 vCPUs Total for 1M RPS)
 managedNodeGroups:
+  # 🛡️ 24 Defender Nodes (Dedicated to Go Backend)
   - name: private-nodes
     instanceType: t3.small
-    desiredCapacity: 4
-    minSize: 4
-    maxSize: 6
+    desiredCapacity: 24
+    minSize: 24
+    maxSize: 24
+    volumeSize: 20
+    privateNetworking: true
+    ssh:
+      allow: false
+
+  # 💣 24 Attacker Nodes (Dedicated to C wrk Missiles & Monitoring)
+  - name: attack-nodes
+    instanceType: t3.small
+    desiredCapacity: 24
+    minSize: 24
+    maxSize: 24
     volumeSize: 20
     privateNetworking: true
     ssh:
